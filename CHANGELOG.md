@@ -25,6 +25,7 @@ For notes on migrating to 2.x / 0.200.x see [the upgrade guide](doc/upgrade-to-2
 
 ### :house: Internal
 
+* perf(sdk-trace-base, resources): deduplicate resource awaits when flushing a batch of spans and memoize `Resource.waitForAsyncAttributes`, so a batch sharing the same resource resolves its async attributes once instead of once per span [#6568](https://github.com/open-telemetry/opentelemetry-js/issues/6568) @nissy-dev
 * chore: build on Node 26 in CI [#6887](https://github.com/open-telemetry/opentelemetry-js/pull/6887) @overbalance
 * chore: bump to typescript@5.2.2 @pichlermarc
 

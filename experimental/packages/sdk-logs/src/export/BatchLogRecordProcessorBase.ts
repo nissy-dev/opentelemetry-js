@@ -20,19 +20,23 @@ import type { LogRecordProcessor } from '../LogRecordProcessor';
  * Waits for all pending async resources in the log records to be resolved.
  */
 async function waitForResources(logRecords: SdkLogRecord[]): Promise<void> {
-  const pendingResources: Array<Promise<void>> = [];
+  // Log records emitted from the same LoggerProvider share a single Resource
+  // reference, so deduplicate by identity to avoid awaiting the same resource
+  // (and allocating a redundant promise) once per log record in the batch.
+  let uniqueResources: Set<SdkLogRecord['resource']> | null = null;
   for (let i = 0, len = logRecords.length; i < len; i++) {
-    const logRecord = logRecords[i];
-    if (
-      logRecord.resource.asyncAttributesPending &&
-      logRecord.resource.waitForAsyncAttributes
-    ) {
-      pendingResources.push(logRecord.resource.waitForAsyncAttributes());
+    const resource = logRecords[i].resource;
+    if (resource.asyncAttributesPending && resource.waitForAsyncAttributes) {
+      (uniqueResources ??= new Set()).add(resource);
     }
   }
 
-  if (pendingResources != null && pendingResources.length > 0) {
-    await Promise.all(pendingResources);
+  if (uniqueResources != null) {
+    await Promise.all(
+      Array.from(uniqueResources, resource =>
+        resource.waitForAsyncAttributes!()
+      )
+    );
   }
 }
 

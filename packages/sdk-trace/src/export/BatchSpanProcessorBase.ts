@@ -195,15 +195,17 @@ export abstract class BatchSpanProcessorBase<
             }
           });
 
-        let pendingResources: Array<Promise<void>> | null = null;
+        let pendingResources: Set<ReadableSpan['resource']> | null = null;
         for (let i = 0, len = spans.length; i < len; i++) {
-          const span = spans[i];
+          const resource = spans[i].resource;
           if (
-            span.resource.asyncAttributesPending &&
-            span.resource.waitForAsyncAttributes
+            resource.asyncAttributesPending &&
+            resource.waitForAsyncAttributes
           ) {
-            pendingResources ??= [];
-            pendingResources.push(span.resource.waitForAsyncAttributes());
+            // Spans emitted from the same Tracer share a single Resource
+            // reference, so deduplicate by identity to avoid awaiting the same
+            // resource once per span in the batch.
+            (pendingResources ??= new Set()).add(resource);
           }
         }
 
@@ -211,7 +213,11 @@ export abstract class BatchSpanProcessorBase<
         if (pendingResources === null) {
           doExport();
         } else {
-          Promise.all(pendingResources).then(doExport, err => {
+          Promise.all(
+            Array.from(pendingResources, resource =>
+              resource.waitForAsyncAttributes!()
+            )
+          ).then(doExport, err => {
             globalErrorHandler(err);
             reject(err);
           });

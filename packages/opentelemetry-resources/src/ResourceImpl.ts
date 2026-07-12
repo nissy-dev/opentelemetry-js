@@ -29,6 +29,7 @@ class ResourceImpl implements Resource {
   private _schemaUrl?: string;
 
   private _memoizedAttributes?: Attributes;
+  private _memoizedWaitPromise?: Promise<void>;
 
   static FromAttributeList(
     attributes: [string, MaybePromise<AttributeValue | undefined>][],
@@ -68,17 +69,25 @@ class ResourceImpl implements Resource {
     return this._asyncAttributesPending;
   }
 
-  public async waitForAsyncAttributes(): Promise<void> {
+  public waitForAsyncAttributes(): Promise<void> {
     if (!this.asyncAttributesPending) {
-      return;
+      return Promise.resolve();
     }
 
-    for (let i = 0; i < this._rawAttributes.length; i++) {
-      const [k, v] = this._rawAttributes[i];
-      this._rawAttributes[i] = [k, isPromiseLike(v) ? await v : v];
-    }
+    // Memoize the in-flight promise so that concurrent callers (e.g. a batch
+    // of spans/log records sharing the same resource) share a single
+    // resolution of the async attributes instead of each awaiting the
+    // underlying attribute promises independently.
+    this._memoizedWaitPromise ??= (async () => {
+      for (let i = 0; i < this._rawAttributes.length; i++) {
+        const [k, v] = this._rawAttributes[i];
+        this._rawAttributes[i] = [k, isPromiseLike(v) ? await v : v];
+      }
 
-    this._asyncAttributesPending = false;
+      this._asyncAttributesPending = false;
+    })();
+
+    return this._memoizedWaitPromise;
   }
 
   public get attributes(): Attributes {

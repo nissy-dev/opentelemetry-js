@@ -6,3 +6,4 @@
 require('./random-id-generator');
 require('./span');
 require('./batch-span-processor');
+require('./batch-span-processor-async-resource');

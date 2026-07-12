@@ -23,6 +23,8 @@ For notes on migrating to 2.x / 0.200.x see [the upgrade guide](doc/upgrade-to-2
 
 ### :house: Internal
 
+* perf(sdk-logs): deduplicate resource awaits when flushing a batch of log records, so a batch sharing the same resource resolves its async attributes once instead of once per log record [#6568](https://github.com/open-telemetry/opentelemetry-js/issues/6568) @nissy-dev
+
 ## 0.220.0
 
 ### :boom: Breaking Changes
